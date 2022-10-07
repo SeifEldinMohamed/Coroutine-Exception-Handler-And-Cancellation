@@ -4,6 +4,7 @@ import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
 import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.*
+import java.net.HttpRetryException
 
 class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -12,9 +13,72 @@ class MainActivity : AppCompatActivity() {
 
         // coroutineExceptionHandler()
         // coroutineScopeExample()
-        coroutineSuperVisorScopeExample()
+        // coroutineSuperVisorScopeExample()
+        // commonMistake()
+        // firstSolution()
+        secondSolution()
 
 
+    }
+
+    private fun secondSolution() {
+        lifecycleScope.launch {
+            val job = launch {
+                try {
+                    delay(500L)
+                } catch (e: Exception) {
+                    if (e is CancellationException) {
+                        throw e
+                    }
+                    e.printStackTrace() // t's a method on Exception instances that prints the stack trace of the instance to System.err. It's a very simple, but very useful tool for diagnosing an exceptions. It tells you what happened and where in the code this happened.
+                }
+                println("Coroutine 1 Finished")
+            }
+            delay(300L)
+            job.cancel()
+        }
+        /** Solution 2 **/
+        // we check if this exception is CancellationException then we rethrow it so it propagate up as usual
+    }
+
+    private fun firstSolution() {
+        lifecycleScope.launch {
+            val job = launch {
+                try {
+                    delay(500L)
+                } catch (e: HttpRetryException) {
+                    e.printStackTrace() // t's a method on Exception instances that prints the stack trace of the instance to System.err. It's a very simple, but very useful tool for diagnosing an exceptions. It tells you what happened and where in the code this happened.
+                }
+                println("Coroutine 1 Finished")
+            }
+            delay(300L)
+            job.cancel()
+        }
+        /** Solution 1 **/
+        // we only catch the HTTP Exception so the Cancellation Exception will propagate up as usual
+    }
+
+    private fun commonMistake() {
+        lifecycleScope.launch {
+            val job = launch {
+                try {
+                    delay(500L)
+                } catch (e: Exception) {
+                    e.printStackTrace() // t's a method on Exception instances that prints the stack trace of the instance to System.err. It's a very simple, but very useful tool for diagnosing an exceptions. It tells you what happened and where in the code this happened.
+                }
+                println("Coroutine 1 Finished")
+            }
+            delay(300L)
+            job.cancel()
+        }
+        /** Problem **/
+        // why we still see "Coroutine 1 Finished" even when we cancel this coroutine
+        // because when this coroutine cancelled the current function
+        // that is suspending tha specific coroutine (in this case is delay)
+        // will throw a Cancellation Exception but since that delay executed
+        // in a try and catch block that cancellation exception would be eaten up
+        // by that try and catch block so it's not propagate up any more so
+        // this outer coroutine scope doesn't know that this child coroutine was cancelled
     }
 
     private fun coroutineScopeExample() {
